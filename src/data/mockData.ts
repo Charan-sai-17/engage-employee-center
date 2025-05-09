@@ -1,14 +1,14 @@
-
 export type Employee = {
   id: string;
   name: string;
   position: string;
   department: string;
   email: string;
-  phone: string;
+  phone?: string;
   status: 'active' | 'inactive' | 'on-leave';
-  imageUrl: string;
-  startDate: string;
+  imageUrl: string | null;
+  startDate?: string;
+  hireDate?: string;
   manager?: string;
 };
 
@@ -23,6 +23,7 @@ export type LeaveRequest = {
   reason?: string;
   approver?: string;
   approvedDate?: string;
+  requestDate?: string;
 };
 
 export type Announcement = {
