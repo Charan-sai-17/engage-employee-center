@@ -12,6 +12,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
+import { 
   Select,
   SelectContent,
   SelectItem,
@@ -26,18 +42,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, FileText, Mail, User } from "lucide-react";
+import { Search, FileText, Mail, User, UserPlus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
+  const [employeesList, setEmployeesList] = useState<Employee[]>(employees);
+  const { toast } = useToast();
+  
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      department: "",
+      position: "",
+      status: "active"
+    }
+  });
   
   // Get unique departments
-  const departments = [...new Set(employees.map(emp => emp.department))];
+  const departments = [...new Set(employeesList.map(emp => emp.department))];
   
   // Filter employees
-  const filteredEmployees = employees.filter(employee => {
+  const filteredEmployees = employeesList.filter(employee => {
     // Search term filter
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           employee.position.toLowerCase().includes(searchTerm.toLowerCase());
@@ -67,12 +98,40 @@ export default function Employees() {
     }
   };
 
+  const handleAddEmployee = (data: any) => {
+    const newEmployee: Employee = {
+      id: `emp-${Date.now()}`,
+      name: data.name,
+      email: data.email,
+      department: data.department,
+      position: data.position,
+      status: data.status,
+      hireDate: new Date().toISOString(),
+      imageUrl: null
+    };
+    
+    setEmployeesList(prev => [...prev, newEmployee]);
+    setIsAddEmployeeDialogOpen(false);
+    form.reset();
+    
+    toast({
+      title: "Employee Added",
+      description: `${newEmployee.name} has been added successfully.`
+    });
+  };
+
   return (
     <PageLayout title="Employees">
       <div className="animate-fade-in">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold">Employee Directory</h2>
-          <Button className="bg-hr-blue-500 hover:bg-hr-blue-600">Add Employee</Button>
+          <Button 
+            className="bg-hr-blue-500 hover:bg-hr-blue-600" 
+            onClick={() => setIsAddEmployeeDialogOpen(true)}
+          >
+            <UserPlus size={16} />
+            Add Employee
+          </Button>
         </div>
         
         <Card className="mb-6">
@@ -179,6 +238,116 @@ export default function Employees() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Employee</DialogTitle>
+            <DialogDescription>
+              Fill in the employee details to add them to the directory.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleAddEmployee)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} required />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="john.doe@company.com" {...field} required />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="HR">HR</SelectItem>
+                          <SelectItem value="Engineering">Engineering</SelectItem>
+                          <SelectItem value="Marketing">Marketing</SelectItem>
+                          <SelectItem value="Finance">Finance</SelectItem>
+                          <SelectItem value="Sales">Sales</SelectItem>
+                          <SelectItem value="Operations">Operations</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="position"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Position</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Software Engineer" {...field} required />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="on-leave">On Leave</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter className="pt-4">
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button type="submit">Add Employee</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 }

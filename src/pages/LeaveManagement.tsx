@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { leaveRequests, LeaveRequest } from "@/data/mockData";
+import { leaveRequests as initialLeaveRequests, employees, LeaveRequest } from "@/data/mockData";
 import {
   Card,
   CardContent,
@@ -10,14 +10,24 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogClose
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -39,12 +49,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Calendar, CheckCircle, XCircle } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, CalendarPlus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LeaveManagement() {
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(initialLeaveRequests);
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const [isRequestLeaveDialogOpen, setIsRequestLeaveDialogOpen] = useState(false);
+  const { toast } = useToast();
+  
+  const form = useForm({
+    defaultValues: {
+      employeeId: "",
+      type: "annual",
+      startDate: "",
+      endDate: "",
+      reason: ""
+    }
+  });
 
   // Filter leave requests
   const filteredRequests = leaveRequests.filter(request => {
@@ -93,6 +118,78 @@ export default function LeaveManagement() {
   const handleViewRequest = (request: LeaveRequest) => {
     setSelectedRequest(request);
     setIsDialogOpen(true);
+  };
+  
+  const handleApproveRequest = (requestId: string) => {
+    setLeaveRequests(prev => prev.map(req => 
+      req.id === requestId 
+        ? { 
+            ...req, 
+            status: "approved", 
+            approver: "HR Manager", 
+            approvedDate: new Date().toISOString() 
+          } 
+        : req
+    ));
+    
+    setIsDialogOpen(false);
+    toast({
+      title: "Leave Request Approved",
+      description: "The leave request has been approved successfully."
+    });
+  };
+  
+  const handleRejectRequest = (requestId: string) => {
+    setLeaveRequests(prev => prev.map(req => 
+      req.id === requestId 
+        ? { 
+            ...req, 
+            status: "rejected", 
+            approver: "HR Manager", 
+            approvedDate: new Date().toISOString() 
+          } 
+        : req
+    ));
+    
+    setIsDialogOpen(false);
+    toast({
+      title: "Leave Request Rejected",
+      description: "The leave request has been rejected."
+    });
+  };
+  
+  const handleRequestLeave = (data: any) => {
+    const employee = employees.find(emp => emp.id === data.employeeId);
+    
+    if (!employee) {
+      toast({
+        title: "Error",
+        description: "Employee not found",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const newRequest: LeaveRequest = {
+      id: `leave-${Date.now()}`,
+      employeeId: data.employeeId,
+      employeeName: employee.name,
+      type: data.type,
+      startDate: new Date(data.startDate).toISOString(),
+      endDate: new Date(data.endDate).toISOString(),
+      status: "pending",
+      reason: data.reason,
+      requestDate: new Date().toISOString(),
+    };
+    
+    setLeaveRequests(prev => [newRequest, ...prev]);
+    setIsRequestLeaveDialogOpen(false);
+    form.reset();
+    
+    toast({
+      title: "Leave Request Submitted",
+      description: "Your leave request has been submitted for approval."
+    });
   };
 
   const LeaveRequestTable = ({ requests }: { requests: LeaveRequest[] }) => (
@@ -151,7 +248,13 @@ export default function LeaveManagement() {
       <div className="animate-fade-in">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold">Leave Management</h2>
-          <Button className="bg-hr-blue-500 hover:bg-hr-blue-600">Request Leave</Button>
+          <Button 
+            className="bg-hr-blue-500 hover:bg-hr-blue-600"
+            onClick={() => setIsRequestLeaveDialogOpen(true)}
+          >
+            <CalendarPlus size={16} />
+            Request Leave
+          </Button>
         </div>
 
         <Card className="mb-6">
@@ -239,11 +342,18 @@ export default function LeaveManagement() {
               <DialogFooter>
                 {selectedRequest.status === "pending" ? (
                   <>
-                    <Button variant="outline" className="gap-2" onClick={() => setIsDialogOpen(false)}>
+                    <Button 
+                      variant="outline" 
+                      className="gap-2" 
+                      onClick={() => handleRejectRequest(selectedRequest.id)}
+                    >
                       <XCircle size={16} />
                       Reject
                     </Button>
-                    <Button className="gap-2 bg-hr-green-500 hover:bg-hr-green-600" onClick={() => setIsDialogOpen(false)}>
+                    <Button 
+                      className="gap-2 bg-hr-green-500 hover:bg-hr-green-600" 
+                      onClick={() => handleApproveRequest(selectedRequest.id)}
+                    >
                       <CheckCircle size={16} />
                       Approve
                     </Button>
@@ -254,6 +364,123 @@ export default function LeaveManagement() {
               </DialogFooter>
             </DialogContent>
           )}
+        </Dialog>
+        
+        <Dialog open={isRequestLeaveDialogOpen} onOpenChange={setIsRequestLeaveDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Request Leave</DialogTitle>
+              <DialogDescription>
+                Fill in the details to submit a new leave request.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleRequestLeave)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="employeeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Employee</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select employee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {employees.map(employee => (
+                            <SelectItem key={employee.id} value={employee.id}>
+                              {employee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Leave Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select leave type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="annual">Annual Leave</SelectItem>
+                          <SelectItem value="sick">Sick Leave</SelectItem>
+                          <SelectItem value="personal">Personal Leave</SelectItem>
+                          <SelectItem value="maternity">Maternity Leave</SelectItem>
+                          <SelectItem value="paternity">Paternity Leave</SelectItem>
+                          <SelectItem value="unpaid">Unpaid Leave</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} required />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} required />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="reason"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reason (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Provide a reason for your leave request" 
+                          className="resize-none" 
+                          rows={4} 
+                          {...field} 
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <DialogFooter className="pt-4">
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button type="submit">Submit Request</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
         </Dialog>
       </div>
     </PageLayout>
