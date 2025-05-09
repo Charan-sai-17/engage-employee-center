@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function Dashboard() {
-  const { pendingLeaveRequests } = leaveRequests.filter(request => request.status === "pending").length;
+  const pendingLeaveRequests = leaveRequests.filter(request => request.status === "pending").length;
   const recentAnnouncements = announcements.sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   ).slice(0, 3);
